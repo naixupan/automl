@@ -16,7 +16,13 @@
 
 AutoAugment Reference: https://arxiv.org/abs/1805.09501
 RandAugment Reference: https://arxiv.org/abs/1909.13719
+
 """
+'''
+数据增强策略
+'''
+
+
 import inspect
 import math
 from absl import logging
@@ -35,6 +41,8 @@ def policy_v0():
   # Each tuple is an augmentation operation of the form
   # (operation, probability, magnitude). Each element in policy is a
   # sub-policy that will be applied sequentially on the image.
+  
+  # 自动增强策略，共25个子策略
   policy = [
       [('Equalize', 0.8, 1), ('ShearY', 0.8, 4)],
       [('Color', 0.4, 9), ('Equalize', 0.6, 3)],
@@ -76,7 +84,9 @@ def policy_vtest():
   return policy
 
 
+
 def blend(image1, image2, factor):
+    # 混合图像，factor为混合因子，0.0表示只使用image1，1.0表示只使用image2，0.0-1.0之间表示线性插值
   """Blend image1 and image2 using 'factor'.
 
   Factor can be above 0.0.  A value of 0.0 means only image1 is used.
@@ -120,6 +130,15 @@ def blend(image1, image2, factor):
 
 
 def cutout(image, pad_size, replace=0):
+    # 随机遮挡增强。随机遮挡图像的一部分区域，来增强模型的泛化能力
+  '''
+  中心思想是创建一个随机大小的矩形区域，然后将该区域内的像素值替换为指定的值（通常是0）。
+  步骤：
+  1. 随机选择一个矩形区域的中心坐标。
+  2. 随机选择一个矩形区域的大小。
+  3. 将矩形区域内的像素值替换为指定的值。一般为0，即黑色。
+  4. 重复步骤1-3，直到完成指定的次数。
+  '''
   """Apply cutout (https://arxiv.org/abs/1708.04552) to image.
 
   This operation applies a (2*pad_size x 2*pad_size) mask of zeros to
@@ -138,9 +157,11 @@ def cutout(image, pad_size, replace=0):
   Returns:
     An image Tensor that is of type uint8.
   """
+  # 获取图像高度和宽度，用于计算遮挡位置
   image_height = tf.shape(image)[0]
   image_width = tf.shape(image)[1]
 
+  # 随机生成遮挡中心坐标
   # Sample the center location in the image where the zero mask will be applied.
   cutout_center_height = tf.random_uniform(
       shape=[], minval=0, maxval=image_height,
@@ -150,6 +171,7 @@ def cutout(image, pad_size, replace=0):
       shape=[], minval=0, maxval=image_width,
       dtype=tf.int32)
 
+  # 计算垂直方向和水平方向的填充量
   lower_pad = tf.maximum(0, cutout_center_height - pad_size)
   upper_pad = tf.maximum(0, image_height - cutout_center_height - pad_size)
   left_pad = tf.maximum(0, cutout_center_width - pad_size)
@@ -169,14 +191,16 @@ def cutout(image, pad_size, replace=0):
       image)
   return image
 
-
+# 曝光处理
 def solarize(image, threshold=128):
+  # 对照片高光部分进行翻转
   # For each pixel in the image, select the pixel
   # if the value is less than the threshold.
   # Otherwise, subtract 255 from the pixel.
   return tf.where(image < threshold, image, 255 - image)
 
 
+# 叠加曝光增强
 def solarize_add(image, addition=0, threshold=128):
   # For each pixel in the image less than threshold
   # we add 'addition' amount to it and then clip the
@@ -187,12 +211,14 @@ def solarize_add(image, addition=0, threshold=128):
   return tf.where(image < threshold, added_image, image)
 
 
+# 原图像与灰度图像混合，降低饱和度
 def color(image, factor):
   """Equivalent of PIL Color."""
   degenerate = tf.image.grayscale_to_rgb(tf.image.rgb_to_grayscale(image))
   return blend(degenerate, image, factor)
 
 
+# 调整图像对比度
 def contrast(image, factor):
   """Equivalent of PIL Contrast."""
   degenerate = tf.image.rgb_to_grayscale(image)

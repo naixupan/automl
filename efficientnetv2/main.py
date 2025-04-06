@@ -316,12 +316,13 @@ def model_fn(features, labels, mode, params):
 
 
 def main(unused_argv):
-  config = copy.deepcopy(hparams.base_config)
-  config.override(effnetv2_configs.get_model_config(FLAGS.model_name))
-  config.override(datasets.get_dataset_config(FLAGS.dataset_cfg))
-  config.override(FLAGS.hparam_str)
-  config.override(FLAGS.sweeps)
+  config = copy.deepcopy(hparams.base_config)   #基础配置
+  config.override(effnetv2_configs.get_model_config(FLAGS.model_name))  #模型架构配置
+  config.override(datasets.get_dataset_config(FLAGS.dataset_cfg))   #数据集配置
+  config.override(FLAGS.hparam_str)  #命令行参数覆盖
+  config.override(FLAGS.sweeps) #参数扫描配置
 
+  # 训练数据和验证数据大小
   train_size = config.train.isize
   eval_size = config.eval.isize
   if train_size <= 16.:
